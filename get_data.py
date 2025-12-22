@@ -22,6 +22,7 @@ def get_resources_and_masks():
         print(f"Project '{PROJECT_NAME}' found")
         
     resources = api.projects.get_project_resources(project)
+    resources = resources[3:5]
     if resources:
         print(f"Found {len(resources)} resources in project '{PROJECT_NAME}'")
         
@@ -73,7 +74,25 @@ def convert_dicom_to_nifti(dicom_folder, output_folder):
             print(f"Successfully converted folder {base_name} to NIfTI")
         except Exception as e:
             print(f"Failed to convert {base_name}: {e}")
+            
+''' Call this function if previous conversion failed due to slice increment issues (SLICE_INCREMENT_INCONSISTENT error was raised) '''
+def convert_dicom_with_previous_error(list_dicom_folder):
+    import dicom2nifti.settings as settings
+    settings. disable_validate_sliceincrement()
+    
+    for folder in list_dicom_folder:
+        base_name = os.path.basename(folder)
+        output_file = os.path.join(OUTPUT_NIFTI, f"{base_name}.nii.gz")
+        
+        try:
+            dicom2nifti.dicom_series_to_nifti(folder, output_file, reorient_nifti=True)
+            print(f"Successfully converted folder {base_name} to NIfTI")
+        except Exception as e:
+            print(f"Failed to convert {base_name}: {e}")
+    
     
 if __name__ == "__main__":
     get_resources_and_masks()
     convert_dicom_to_nifti(OUTPUT_RESOURCES, OUTPUT_NIFTI)
+    
+    files_with_error = ["download_resources/20221026", "download_resources/20220608", "download_resources/20240828"]
