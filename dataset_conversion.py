@@ -2,6 +2,8 @@ from batchgenerators.utilities.file_and_folder_operations import *
 import shutil
 from nnunetv2.dataset_conversion.generate_dataset_json import generate_dataset_json
 from nnunetv2.paths import nnUNet_raw
+import nibabel as nib
+import numpy as np
 
 TASK_NAME = "Lesions"
 NNUNET_DATASET_ID = "750"
@@ -14,6 +16,27 @@ def extract_case_id_from_image(filename: str) -> str:
 
 def extract_case_id_from_mask(filename: str) -> str:
     return filename.split("_segmentation")[0]
+
+def sanitize_and_save_mask(mask_src, mask_dst):
+    nii = nib.load(mask_src)
+    data = nii.get_fdata()
+
+    if data.ndim == 4 and data.shape[-1] == 1:
+        data = np.squeeze(data, axis=-1)
+
+    if data.ndim != 3:
+        raise ValueError(f"Invalid mask shape {data.shape} for {mask_src}")
+
+    if not np.allclose(data, np.round(data)):
+        raise ValueError(f"Mask {mask_src} contains non-integer values")
+
+    data = data.astype(np.uint8)
+
+    nib.save(
+        nib.Nifti1Image(data, nii.affine),
+        mask_dst
+    )
+
 
 def convert_to_nnunet_format(input_images, input_masks, output_base):
     output_folder = join(output_base, FOLDER_NAME)
@@ -53,7 +76,7 @@ def convert_to_nnunet_format(input_images, input_masks, output_base):
             mask_dst = join(labelsTr_folder, f"{case_id}.nii.gz")
 
             shutil.copy(img_src, img_dst)
-            shutil.copy(mask_src, mask_dst)
+            sanitize_and_save_mask(mask_src, mask_dst)
         else:
             ''' otherwise, it's a test case '''
             test_cases.append(case_id)
