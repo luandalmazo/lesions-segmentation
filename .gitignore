@@ -2,3 +2,4 @@ download_masks/
 download_resources/
 nifti_resources/
 nnUNet/
+sample_size.txt

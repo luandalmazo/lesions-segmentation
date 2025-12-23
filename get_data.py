@@ -78,7 +78,7 @@ def convert_dicom_to_nifti(dicom_folder, output_folder):
 ''' Call this function if previous conversion failed due to slice increment issues (SLICE_INCREMENT_INCONSISTENT error was raised) '''
 def convert_dicom_with_previous_error(list_dicom_folder):
     import dicom2nifti.settings as settings
-    settings. disable_validate_sliceincrement()
+    settings.disable_validate_slice_increment()
     
     for folder in list_dicom_folder:
         base_name = os.path.basename(folder)
@@ -95,4 +95,7 @@ if __name__ == "__main__":
     get_resources_and_masks()
     convert_dicom_to_nifti(OUTPUT_RESOURCES, OUTPUT_NIFTI)
     
-    files_with_error = ["download_resources/20221026", "download_resources/20220608", "download_resources/20240828"]
+    #files_with_error = ["download_resources/D:\LESÕES ÓSSEAS OK\P266\20220608", "download_resources/D:\LESÕES ÓSSEAS OK\P249\20220531", 
+    #                    "download_resources/D:\LESÕES ÓSSEAS OK\P246\20221116", "D:\LESÕES ÓSSEAS OK\P245\20221026", 
+    #                    "D:\LESÕES ÓSSEAS OK\P157\20240828"]
+    #convert_dicom_with_previous_error(files_with_error)
