@@ -2,6 +2,8 @@ from datamint import Api
 import os
 import dicom2nifti
 import nibabel as nib
+from medimgkit.readers import read_array_normalized
+import numpy as np
 
 PROJECT_NAME = "Renata study"
 OUTPUT_RESOURCES = "./download_resources"
@@ -30,16 +32,20 @@ def get_resources_and_masks():
     os.makedirs(OUTPUT_MASK, exist_ok=True)
 
     for resource in resources:
-        base_name = resource.filename.replace('\\', '/').split('/')[-1]
-        base_name = os.path.splitext(base_name)[0]
-        
-        resource_dir = os.path.join(OUTPUT_RESOURCES, base_name)
-        os.makedirs(resource_dir, exist_ok=True)
-        
-        resource_output_path = os.path.join(resource_dir, f"{base_name}.dcm")
-        
-        im = resource.fetch_file_data(use_cache=True, save_path=resource_output_path)
-        print(f"Downloaded resource '{base_name}' to '{resource_output_path}'")
+        base_name = os.path.splitext(resource.filename)[0]
+
+        resource_bytes = resource.fetch_file_data(
+            use_cache=True,
+            auto_convert=False
+        )
+
+        im = read_array_normalized(resource_bytes)   # (N, C, H, W)
+        im_nii = im[:, 0]                            # (Z, H, W)
+
+        img_out = os.path.join(OUTPUT_RESOURCES, f"{base_name}.nii.gz")
+        nib.save(nib.Nifti1Image(im_nii.astype(np.float32), np.eye(4)), img_out)
+
+        print(f"Saved image NIfTI '{img_out}'")
         
         annotations = api.annotations.get_list(
         resource=resource,
@@ -47,19 +53,32 @@ def get_resources_and_masks():
         )
         
         segmentation_annotation = [ann for ann in annotations if ann.type == 'segmentation']
-        
         print(f"Found {len(segmentation_annotation)} segmentations for resource '{base_name}'")
         
-        if segmentation_annotation:
-            count = 0
-            for seg in segmentation_annotation:
-                segmentation_output_name = f"{base_name}_segmentation_{count}.nii.gz"
-                seg_data = seg.fetch_file_data(use_cache=True, save_path=os.path.join(OUTPUT_MASK, segmentation_output_name))
-                print(type(seg_data ))
-                count += 1
-                print(f"Downloaded segmentation annotation '{segmentation_output_name}' to '{OUTPUT_MASK}'")
+        for count, seg in enumerate(segmentation_annotation):
+            masks_bytes = seg.fetch_file_data(
+                use_cache=True,
+                auto_convert=False
+            )
+
+            masks = read_array_normalized(masks_bytes)  # (N, 1, H, W)
+            masks = masks[::-1]                          
+            mask_nii = masks[:, 0]
+
+            seg_out = os.path.join(
+                OUTPUT_MASK,
+                f"{base_name}_segmentation_{count}.nii.gz"
+            )
+
+            nib.save(
+                nib.Nifti1Image(mask_nii.astype(np.uint8), np.eye(4)),
+                seg_out
+            )
+
+            print(f"Saved segmentation '{seg_out}'")
 
     print("All resources and masks have been downloaded.")
+
 
 def convert_dicom_to_nifti(dicom_folder, output_folder):
     os.makedirs(output_folder, exist_ok=True)
@@ -93,7 +112,7 @@ def convert_dicom_with_previous_error(list_dicom_folder):
     
 if __name__ == "__main__":
     get_resources_and_masks()
-    convert_dicom_to_nifti(OUTPUT_RESOURCES, OUTPUT_NIFTI)
+    #convert_dicom_to_nifti(OUTPUT_RESOURCES, OUTPUT_NIFTI)
     
     #files_with_error = ["download_resources/D:\LESÕES ÓSSEAS OK\P266\20220608", "download_resources/D:\LESÕES ÓSSEAS OK\P249\20220531", 
     #                    "download_resources/D:\LESÕES ÓSSEAS OK\P246\20221116", "D:\LESÕES ÓSSEAS OK\P245\20221026", 
